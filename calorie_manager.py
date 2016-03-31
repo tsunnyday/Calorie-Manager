@@ -17,6 +17,7 @@ def add_new_food_entry_to_db(date, food_name, amount, unit, calories, fat, carbs
 
 
 def get_new_food_entry_from_user():
+	print "Add New Entry\n------------------------------------------------"
 	confirm = ""
 	while confirm != "y" and confirm != "n":
 		confirm = raw_input("Did you eat this food today ({})? (y/n): ".format(time.strftime("%m/%d/%Y")))
@@ -51,6 +52,11 @@ def get_new_food_entry_from_user():
 		print "Scrapping this entry"
 	return
 		
+def display_help():
+	print "a: Add an entry"
+	print "h: Display help"
+	print "q: Quit"
+
 	
 def get_float_from_user(message):
 	while 1:
@@ -62,6 +68,16 @@ def get_float_from_user(message):
 	
 if __name__ == "__main__":
 	conn = sqlite3.connect("calories.db")
-	get_new_food_entry_from_user()
+	cmd = ""
+	while 1:
+		cmd = raw_input("What would you like to do (h for help): ")
+		if cmd == "q":
+			break
+		elif cmd == "h":
+			display_help()
+		elif cmd == "a":
+			get_new_food_entry_from_user()
+		else:
+			print "Unrecognized command (h for help)"
 
 	conn.close()
