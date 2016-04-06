@@ -13,12 +13,17 @@ MEAL_3_TIME = "16:00"
 
 
 
-def add_new_food_entry_to_db(date, time_eaten, food_name, amount, unit, calories, fat, carbs, protein):
+def add_new_food_eaten_entry_to_db(date, time_eaten, food_name, amount, unit, calories, fat, carbs, protein):
 	c = conn.cursor()
 	
 	c.execute("INSERT INTO Food_Eaten VALUES(?,?,?,?,?,?,?,?,?)", (date, time_eaten, food_name, amount, unit, calories, fat, carbs, protein))
 	conn.commit()
-
+	
+def add_new_saved_food_entry_to_db(food_name, base_amount, unit, base_calories, base_fat, base_carbs, base_protein):
+	c = conn.cursor()
+	
+	c.execute("INSERT INTO Food_Items VALUES(?,?,?,?,?,?,?)", (food_name, base_amount, unit, base_calories, base_fat, base_carbs, base_protein))
+	conn.commit()
 
 def get_new_food_entry_from_user():
 	print "Add New Entry\n------------------------------------------------"
@@ -40,24 +45,88 @@ def get_new_food_entry_from_user():
 	unit = raw_input("In units: ")
 	if(unit == "-"):
 		unit = food_name
-	calories = get_float_from_user("Calories: ")
-	protein = get_float_from_user("Protein: ")
-	carbs = get_float_from_user("Carbs: ")
-	fat = get_float_from_user("Fat: ")
+		
+	if check_if_food_and_unit_in_db(food_name, unit):
+		print "There is an entry for this food and unit in the database already."
+		row = get_food_and_unit_in_db(food_name, unit)
+		r_name = row['name']
+		r_amount = row['base_amount']
+		r_unit = row['base_amount_unit']
+		r_calories = row['calories']
+		r_fat = row['fat']
+		r_carbs = row['carbs']
+		r_protein = row['protein']
+		print "\nName:{}\nAmount:{}\nUnit:{}\nCalories:{}\nFat:{}\nCarbs:{}\nProtein:{}\n".format(r_name, str(r_amount), r_unit, str(r_calories), str(r_fat), str(r_carbs), str(r_protein))
+		if get_confirm_from_user("Would you like to use this entry? "):
+			calories = (amount * row['calories']) / row['base_amount']
+			protein = (amount * row['protein']) / row['base_amount']
+			carbs = (amount * row['carbs']) / row['base_amount']
+			fat = (amount * row['fat']) / row['base_amount']
+			
+			
+		else:
+			calories = get_float_from_user("Calories: ")
+			protein = get_float_from_user("Protein: ")
+			carbs = get_float_from_user("Carbs: ")
+			fat = get_float_from_user("Fat: ")
+	
+			
+		
+	else:
+		calories = get_float_from_user("Calories: ")
+		protein = get_float_from_user("Protein: ")
+		carbs = get_float_from_user("Carbs: ")
+		fat = get_float_from_user("Fat: ")
 	
 	
 	print "\n\n\nDate:{} \nTime:{} \nFoodName:{} \nAmount:{} Unit:{} \nCalories:{} \nFat:{} \nCarbs:{} \nProtein:{}".format(date, time_eaten, food_name, str(amount), unit, str(calories), str(fat), str(carbs), str(protein))
-	confirm = ""
-	while confirm != "y" and confirm != "n":
-		confirm = raw_input("Is this okay? (y/n): ")
-		if confirm != "y" and confirm != "n":
-			print "Use y or n"
-	if confirm == "y":
-		add_new_food_entry_to_db(date, time_eaten, food_name, amount, unit, calories, fat, carbs, protein)
+	if get_confirm_from_user("Is this okay?"):
+		
+		add_new_food_eaten_entry_to_db(date, time_eaten, food_name, amount, unit, calories, fat, carbs, protein)
+		print "Saved to database Food_Eaten"
+		
+		if check_if_food_and_unit_in_db(food_name, unit):
+			print "Food and unit already saved"
+		else:
+		
+			if(get_confirm_from_user("Would you like to add this food to the database, to be referenced later? ")):
+				print "Saving '{}' in unit '{}' to foods database".format(food_name, str(unit))
+				base_amount = get_float_from_user("What amount would you like to set as the default? ")
+				base_calories = round((calories * base_amount) / amount)
+				base_protein = round_to_nearest_half((protein * base_amount) / amount)
+				base_carbs = round_to_nearest_half((carbs * base_amount) / amount)
+				base_fat = round_to_nearest_half((fat * base_amount) / amount)
+				print "\n\n\nFoodName:{} \nBaseAmount:{} BaseUnit:{} \nBaseCalories:{} \nBaseFat:{} \nBaseCarbs:{} \nBaseProtein:{}".format(food_name, str(base_amount), unit, str(base_calories), str(base_fat), str(base_carbs), str(base_protein))
+				if(get_confirm_from_user("Is this okay?")):
+					add_new_saved_food_entry_to_db(food_name, base_amount, unit, base_calories, base_fat, base_carbs, base_protein)
+					print "Saved to database Food_Items"
+					return
+				else:
+					print "Scrapping this entry"
+					return
+			
+		
 	
 	else:
 		print "Scrapping this entry"
 	return
+
+def check_if_food_and_unit_in_db(food_name, unit):
+	c = conn.cursor()
+	c.execute('SELECT * FROM Food_Items WHERE name=(?) AND base_amount_unit=(?)', (food_name, unit))
+	rows = c.fetchall()
+	if rows:
+		return True
+	else:
+		return False
+		
+def get_food_and_unit_in_db(food_name, unit):
+	c = conn.cursor()
+	c.execute('SELECT * FROM Food_Items WHERE name=(?) AND base_amount_unit=(?)', (food_name, unit))
+	rows = c.fetchall()
+	if len(rows) > 1:
+		print "More than one entry of same name and unit. Just showing one for now."
+	return rows[0]
 
 def show_user_day_total():
 	date = ""
@@ -133,6 +202,17 @@ def get_float_from_user(message):
 		except ValueError:
 			print "Please enter a number"
 			
+def get_confirm_from_user(message):
+	confirm = ""
+	while confirm != "y" and confirm != "n":
+		confirm = raw_input(message + " (y/n): ")
+		if confirm != "y" and confirm != "n":
+			print "Use y or n"
+	if confirm == "y":
+		return True
+	else:
+		return False
+			
 def get_time_eaten_from_user():
 	time_eaten = raw_input("Please enter a time:")
 	if(time_eaten == "m1"):
@@ -142,6 +222,10 @@ def get_time_eaten_from_user():
 	elif(time_eaten == "m3"):
 		time_eaten = MEAL_3_TIME
 	return time_eaten
+	
+def round_to_nearest_half(float_in):
+	return round(float_in / .5) * .5
+	
 	
 if __name__ == "__main__":
 	conn = sqlite3.connect("calories.db")
